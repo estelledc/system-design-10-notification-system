@@ -186,8 +186,8 @@ test('expired lease records an unknown outcome and the new token fences the old 
   ]);
 });
 
-test('scheduling prevents early leases and unclaimed expired work becomes terminal', async () => {
-  await submit('scheduled-request-0001', {
+test('scheduling prevents an early lease and permits a due lease', async () => {
+  const created = await submit('scheduled-request-0001', {
     channels: ['push'], scheduledAtMs: 5_000, expiresAtMs: 10_000,
   });
   assert.equal(await store.claimNext({
@@ -197,14 +197,17 @@ test('scheduling prevents early leases and unclaimed expired work becomes termin
     leaseToken: randomUUID(),
     workerId: 'worker-early',
   }), null);
-  assert.ok(await store.claimNext({
+  const due = await store.claimNext({
     nowMs: 5_000,
     leaseMs: 100,
     crashCooldownMs: 0,
     leaseToken: randomUUID(),
     workerId: 'worker-due',
-  }));
+  });
+  assert.equal(due.intentId, created.intentId);
+});
 
+test('unclaimed expired work becomes terminal without a lease', async () => {
   await submit('expired-request-000001', {
     recipientRef: 'recipient-002', channels: ['sms'], scheduledAtMs: 6_000, expiresAtMs: 7_000,
   });
